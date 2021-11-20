@@ -1,11 +1,11 @@
 Dataset:
-  game_id: total
+  game_id: sample
   cut_length: 128
   test_game_id: [2319, 1908, 1999]
 
 train:
   batch_size: 512
-  lr: 1e-1
+  lr: 1e-3
   epochs: 500
 
 model:

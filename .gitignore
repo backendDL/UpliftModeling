@@ -3,6 +3,11 @@ data/
 game_log_url.txt
 game_push_url.txt
 
+# Trained Model
+ckpts/
+log_data/
+runs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
