@@ -1,12 +1,15 @@
 import os
+import json
 import gzip
 import shutil
 import requests
-from typing import Optional
+from typing import Optional, Union, Dict, List
 
+import numpy as np
 import pandas as pd
 
 import torch
+from torch._C import Value
 from torch.utils.data import Dataset
 
 from tqdm import tqdm
@@ -40,6 +43,60 @@ class UpliftDataset(Dataset):
         t = torch.tensor(self.t.iloc[idx], dtype=torch.float32)
         y = torch.tensor(self.y.iloc[idx], dtype=torch.float32)
         return (X, t, y)
+
+
+class BackendJsonDataset:
+    def __init__(
+        self,
+        json_path,
+    ):
+        with open(json_path, "r") as f:
+            self.data = json.load(f)
+        self.game_ids = list(self.data.keys())
+
+    def get_game_ids(self):
+        return self.game_ids
+
+    def get_df(self, game_id: Union[str, int]) -> Dict[str, List]:
+        game_id = str(game_id)
+        if game_id not in self.game_ids:
+            raise ValueError("game_id not in self.data")
+        jsons = self.data[game_id]
+
+        X = []
+        t = []
+        y = []
+        errors = []
+
+        for idx, j in enumerate(jsons):
+            X_t0 = pd.read_json(j["X_t0"], orient='table')
+            if np.sum(X_t0["Login"]) > 0:
+                X.append(X_t0)
+                t.append(0)
+                y.append(j["y_t0"])
+            else:
+                errors.append(idx)
+            X_t1 = pd.read_json(j["X_t1"], orient='table')
+            if np.sum(X_t1["Login"]) > 0:
+                X.append(X_t1)
+                t.append(1)
+                y.append(j["y_t1"])
+            else:
+                errors.append(idx)
+        
+        return {"X": X, "t": t, "y": y, "errors": errors}
+
+    def get_all_dfs(self) -> Dict[str, List]:
+        
+        results = {"X": [], "t": [], "y": [], "errors": []}
+
+        for game_id in self.game_ids:
+            temp = self.get_df(game_id)
+            for k in results.keys():
+                results[k].extend(temp[k])
+
+        return results
+        
 
 
 def prepare_data(data: str, **kwargs) -> pd.DataFrame:
