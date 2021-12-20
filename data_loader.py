@@ -8,17 +8,19 @@ import torch
 import os
 import random
 
+from typing import Union, Any, Dict, Tuple, Optional
+
 from utils import *
 
 class Dataset:
-    def __init__(self, cfg=None):
+    def __init__(self, cfg: Dict[str, Any]=None):
         self.cfg = cfg
         if cfg is not None:
             self.game_id = self.cfg['game_id']
             self.cut_length = self.cfg['cut_length']
             self.test_game_ids = self.cfg['test_game_id']
 
-    def load_train_data(self, game_id):
+    def load_train_data(self, game_id: Union[str, int]) -> Union[Tuple[pd.DataFrame, Dict[str, Any]], None]:
         if os.path.isfile('./data/dataset.pkl'):
             print('전처리된 파일이 존재합니다. 전처리 파일 불러오는 중...', end='')
             with open('./data/dataset.pkl', 'rb') as f:
@@ -41,8 +43,8 @@ class Dataset:
             print('전처리된 파일이 존재하지 않습니다. raw data 파일 불러오는 중...', end='')
             login_log_path = os.path.join('data', 'login_logs', str(game_id) + '.csv')
             push_log_path = os.path.join('data', 'push.csv')
-            assert os.path.isfile(login_log_path)
-            assert os.path.isfile(push_log_path)
+            assert os.path.isfile(login_log_path), "It is not a valid path: " + str(login_log_path)
+            assert os.path.isfile(push_log_path), "It is not a valid path: " + str(push_log_path)
             
             login_logs = pd.read_csv(login_log_path)
             push_logs = pd.read_csv(push_log_path)
@@ -57,16 +59,14 @@ class Dataset:
         self.errors = []
         data = self.load_train_data(self.game_id)
         if data is None: 
-            print()
             print('\n' + '-' * 100 + '\n')
-            print()
-
             return None
         else:
             login_logs, push_logs = data
 
             total_max_date = login_logs.inDate.max()
             total_min_date = login_logs.inDate.min()
+            print("Dataset span: from {} // to {}".format(total_min_date, total_max_date))
 
             print('전처리 시작. 최초 1회에 한하여 시간이 다소 걸릴 수 있습니다.')
             # TODO: Churner / Non-Churner 비율 밸런싱 필요(레이블의 분포)
@@ -77,8 +77,9 @@ class Dataset:
             # 데이터셋 생성하는 간격을 설정하는 것은 중요
             # 짧은 주기 -> 중복되는 인풋, 긴 주기 -> 인풋 데이터량이 감소
             # 7의 배수(7, 14, ...) 주기는 금지 -> 특정 요일에 오버피팅 발생
-            point_date_count = (total_max_date - total_min_date).days // 5
-            point_dates = [(total_max_date - timedelta(days=7 + 5 * i)).replace(hour=6, minute=0, second=0, microsecond=0) for i in range(1, point_date_count + 1)]
+            interval = 5
+            point_date_count = (total_max_date - total_min_date).days // interval
+            point_dates = [(total_max_date - timedelta(days=7 + interval * i)).replace(hour=6, minute=0, second=0, microsecond=0) for i in range(1, point_date_count + 1)]
             
             prepared_gamer_id = set()
             prepared_counts = defaultdict(lambda: 3)
@@ -148,23 +149,32 @@ class Dataset:
                     'errors': self.errors, # 오류 있는 데이터 확인용
                 }, f)
 
-    def extract_sample(self, login_logs, push_logs, point_date, date_range=None):
+    def extract_sample(
+        self, 
+        login_logs: pd.DataFrame, 
+        push_logs: Dict[str, pd.DataFrame], 
+        point_date: pd.Timestamp, 
+        date_range: Optional[Tuple[pd.Timestamp, pd.Timestamp]]=None
+    ):
         if date_range is None:
             date_range = (login_logs.inDate.min(), login_logs.inDate.max())
 
         in_date = login_logs.inDate
         game_id = login_logs.game_id.iloc[0]
-        game_id_str = str(game_id)
-        push_time = push_logs[game_id_str].pushTime if game_id_str in push_logs.keys() else None
+        game_id = str(game_id)
+        push_time = push_logs[game_id].pushTime if game_id in push_logs.keys() else None
+        # Dict[game_id, push_time]
         total_login_count = len(in_date)
 
         in_date = in_date.sort_values()
 
         y = label(point_date, in_date)
+        # Whether a user is loggined from D+1 to D+7
 
         input_in_date = in_date[in_date <= point_date]
         if push_time is not None:
             push_time = push_time[(push_time >= date_range[0]) & (push_time <= point_date)]
+            # within D-14 ~ D-day
             input_in_date = np.concatenate([input_in_date, push_time])
             log_type = np.zeros((len(input_in_date) + len(push_time), 2))
             log_type[:len(input_in_date), 0] = 1
