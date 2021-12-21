@@ -3,7 +3,7 @@ import json
 import gzip
 import shutil
 import requests
-from typing import Optional, Union, Dict, List
+from typing import Iterable, Optional, Union, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,41 @@ from torch._C import Value
 from torch.utils.data import Dataset
 
 from tqdm import tqdm
+
+
+def daily_embedding(x):
+    # unit is hour in [0, 24)
+    return np.stack([np.sin(2 * np.pi / 24 * x), np.cos(2 * np.pi / 24 * x)])
+
+def weekly_embedding(x):
+    # unit is dayofweek in [0, 6]
+    return np.stack([np.sin(2 * np.pi / 7 * x), np.cos(2 * np.pi / 7 * x)])
+
+
+def transform(X):
+    # X is inDate(pandas datetime64 Series).
+    
+    # 요일과 접속 시간대를 삼각함수로 임베딩
+    day_of_week = np.array(X.dt.dayofweek) # (L,)
+    hour_of_day = np.array(X.dt.hour + X.dt.minute / 60)
+    embedding_D = daily_embedding(hour_of_day) # (2, L)
+    embedding_W = weekly_embedding(day_of_week) # (2, L)
+
+    # in_date = np.array(X).astype('datetime64') # (N,)
+
+    # # 접속 간격 계산
+    # # datetime 타입을 numerical type으로 casting하면 micro second로 계산됨
+    # interval = (in_date[1:] - in_date[:-1]).astype('float') / 1000000 # (N - 1,)
+    # interval = np.array([0, *(interval.tolist())]) # (N,)
+    # interval_D = interval // (3600 * 24)
+    # interval_H = (interval % (3600 * 24)) // 3600
+    # interval_S = interval % 3600
+
+    # interval = np.stack([interval_D, interval_H, interval_S]) # (3, N)
+    x = torch.tensor(np.concatenate([embedding_W, embedding_D], axis=0).T, dtype=torch.float32) # (L, 4)
+
+    return x
+
 
 
 class UpliftDataset(Dataset):
@@ -71,13 +106,18 @@ class BackendJsonDataset:
         for idx, j in enumerate(jsons):
             X_t0 = pd.read_json(j["X_t0"], orient='table')
             if np.sum(X_t0["Login"]) > 0:
+                X_t0 = X_t0.reset_index()
+                X_t0["index"] = pd.to_datetime(X_t0["index"])
                 X.append(X_t0)
                 t.append(0)
                 y.append(j["y_t0"])
             else:
                 errors.append(idx)
+            
             X_t1 = pd.read_json(j["X_t1"], orient='table')
             if np.sum(X_t1["Login"]) > 0:
+                X_t1 = X_t1.reset_index()
+                X_t1["index"] = pd.to_datetime(X_t1["index"])
                 X.append(X_t1)
                 t.append(1)
                 y.append(j["y_t1"])
@@ -97,6 +137,35 @@ class BackendJsonDataset:
 
         return results
         
+
+
+class BackendDataset(Dataset):
+    def __init__(
+        self,
+        data: Dict[str, List],
+        num_features: int = 1,
+    ):
+        assert len(data["X"]) == len(data["y"]), f"X's and t's must have the same length"
+        assert len(data["t"]) == len(data["y"]), f"t's and y's must have the same length"
+
+        self.data = data
+        self.num_features = num_features
+
+        self.X = self.data["X"]
+        self.t = self.data["t"]
+        self.y = self.data["y"]
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        emb = transform(self.X[idx]["index"]) # (L, 4)
+        _X = torch.tensor(self.X[idx].iloc[:, 1:(1+self.num_features)].to_numpy(), dtype=torch.float32) # (L, num_features)
+        X = torch.cat([emb, _X], dim=1) # (L, 4+num_features)
+        t = torch.tensor(self.t[idx], dtype=torch.float32)
+        y = torch.tensor(self.y[idx], dtype=torch.float32)
+
+        return (X, t, y)
 
 
 def prepare_data(data: str, **kwargs) -> pd.DataFrame:
