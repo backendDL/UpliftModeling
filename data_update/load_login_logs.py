@@ -111,10 +111,10 @@ if __name__ == '__main__':
     # 특정 날짜의 로그인 데이터를 다운로드합니다.
     parser = argparse.ArgumentParser(description='Download login data at a specific date')
 
-    parser.add_argument('--url', type=str)
-    parser.add_argument('--date', type=datetime.datetime.fromisoformat, default='2021-10-25')
-    parser.add_argument('--save_path', type=str, default='./')
-    parser.add_argument('--prefix', type=str, default='login')
+    parser.add_argument('--url', type=str, metavar='URL', required=True, help='url to the elastic search server')
+    parser.add_argument('--date', type=datetime.datetime.fromisoformat, metavar='DATE', default='2021-12-01', help='date of format yyyy-mm-dd (default: 2021-12-01)')
+    parser.add_argument('--save_path', type=str, metavar='PATH', default='./data', help='save path (default: ./data)')
+    parser.add_argument('--prefix', type=str, metavar='X', default='login', help="prefix to the saved csv file (default: login)")
 
     args = parser.parse_args()
     main(args)

@@ -28,15 +28,19 @@ def main(args):
     print(f"Dataframe -- created with columns {df.columns}")
     print(f"Dataframe -- number of rows {len(df)}")
 
-    df.to_csv(args.save_file_name, encoding='utf-8')
-    print(f"Dataframe saved as csv at {os.path.abspath(args.save_file_name)}")
+    save_path = os.path.join(args.save_path, args.save_file)
+    df.to_csv(save_path, encoding='utf-8')
+    print(f"Dataframe saved as csv at {os.path.abspath(save_path)}")
     
 
 if __name__ == '__main__':
     # Argument Parsing
     parser = argparse.ArgumentParser(description='Download and save push data')
-    parser.add_argument("--url", type=str)
-    parser.add_argument("--save_file_name", type=str, default="push.csv")
+
+    parser.add_argument("--url", type=str, metavar='URL', required=True, help="url to the push log API")
+    parser.add_argument("--save_path", type=str, metavar='PATH', default='./data', help='save path (default: ./data)')
+    parser.add_argument("--save_file", type=str, metavar='X.csv', default="push.csv", help='save file name (default: push.csv)')
+    
     args = parser.parse_args()
 
     main(args)
