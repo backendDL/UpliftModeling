@@ -11,23 +11,24 @@ def download(url: str) -> Union[List, Dict]:
     return r.json()
 
 
-def get_df(data: Dict) -> pd.DataFrame:
+def get_push_df(url: str) -> pd.DataFrame:
     """Creates a data frame and flattens the `content` column"""
+
+    data = download(url)
+    print("Downloaded push data from the server")
+    
     df = pd.DataFrame(data)
     res = df['content'].apply(pd.Series)
     df = df.drop('content', axis=1)
     new_df = pd.concat([df, res], axis=1)
+    print(f"Dataframe -- created with columns {df.columns}")
+    print(f"Dataframe -- number of rows {len(df)}")
+
     return new_df
 
 
 def main(args):
-    data = download(args.url)
-    print("Downloaded push data from the server")
-
-    df = get_df(data)
-    print(f"Dataframe -- created with columns {df.columns}")
-    print(f"Dataframe -- number of rows {len(df)}")
-
+    df = get_push_df(args.url)
     save_path = os.path.join(args.save_path, args.save_file)
     df.to_csv(save_path, encoding='utf-8')
     print(f"Dataframe saved as csv at {os.path.abspath(save_path)}")

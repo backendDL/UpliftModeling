@@ -84,28 +84,35 @@ def get_login_log(es, date):
     result.inDate = (pd.to_datetime(result.inDate) + datetime.timedelta(hours=9)).dt.strftime('%Y-%m-%dT%H:%M:%S.000') # 원본 데이터는 UTC. KST 처리 필요.
     return result
 
-def main(args):
+def get_login_df(url: str, date: datetime.datetime):
     if _is_server_available():
-
-        es = get_es(args.url)
+        es = get_es(url)
         print("Successfully connected to Elastic Search server")
 
-        df = get_login_log(es, args.date)
-        print(f"Queried login data at {args.date}")
+        df = get_login_log(es, date)
+        print(f"Queried login data at {date}")
         print(f"Length of the data frame {len(df)}")
-        
-        file_name = args.date.strftime("%Y-%m-%d") + ".csv"
-        if args.prefix[-1] != "_":
-            args.prefix += "_"
-        file_name = args.prefix + file_name if args.prefix is not None else file_name
-
-        save_path = os.path.join(args.save_path, file_name)
-
-        df.to_csv(save_path)
-        print(f"Saved the data frame at {os.path.abspath(save_path)}")
+        return df
 
     else:
         print("Server not available. Please request it later in between 6 am to 23 pm.")
+        return None
+
+def main(args):
+    df = get_login_df(args.url, args.date)
+    if df is None: 
+        return
+    
+    file_name = args.date.strftime("%Y-%m-%d") + ".csv"
+    if args.prefix[-1] != "_":
+        args.prefix += "_"
+    file_name = args.prefix + file_name if args.prefix is not None else file_name
+
+    save_path = os.path.join(args.save_path, file_name)
+
+    df.to_csv(save_path)
+    print(f"Saved the data frame at {os.path.abspath(save_path)}")
+
 
 if __name__ == '__main__':
     # 특정 날짜의 로그인 데이터를 다운로드합니다.
