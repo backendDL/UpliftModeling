@@ -1,53 +1,21 @@
 import os
-import glob
 import argparse
 import datetime
-from typing import Tuple
+from typing import Tuple, Optional
 
 import pandas as pd
 
-from data_update.load_login_logs import get_login_df
-from data_update.load_push_logs import get_push_df
-
-def prepare_login_df(args) -> pd.DataFrame:
-
-    dfs = []
-
-    dates = pd.date_range(start=args.start_date, end=args.end_date).to_pydatetime().tolist()
-    file_names = [date.strftime("%Y-%m-%d") + ".csv" for date in dates]
-    if args.login_prefix is not None:
-        file_names = [args.login_prefix + "_" + f for f in file_names]
-    file_names = [os.path.join(args.save_path, f) for f in file_names]
-
-    for date, file in zip(dates, file_names):
-        if os.path.isfile(file) and not args.overwrite:
-            df = pd.read_csv(file, encoding='utf-8')
-        else:
-            df = get_login_df(args.login_url, date)
-            df.to_csv(file)
-        dfs.append(df)
-
-    return pd.concat(dfs, axis=0)
-
-def prepare_push_df(args) -> pd.DataFrame:
-    file_path = os.path.join(args.save_path, args.push_file_name)
-    if os.path.isfile(file_path) and not args.overwrite:
-        df = pd.read_csv(file_path, encoding='utf-8')
-    else:
-        df = get_push_df(file_path)
-        df.to_csv(file_path)
-    return df
+from data_update.prepare_data import prepare_login_df, prepare_push_df
 
 def prepare_data(args) -> Tuple[pd.DataFrame]:
-    login_df = prepare_login_df(args)
-    push_df = prepare_push_df(args)
-
+    login_df = prepare_login_df(args.login_url, args.start_date, args.end_date, args.save_path, args.login_prefix, args.overwrite)
+    push_df = prepare_push_df(args.push_url, args.save_path, args.push_file_name, args.overwrite)
     return login_df, push_df
 
 def main(args):
     login_df, push_df = prepare_data(args)
-    print(len(login_df))
-    print(len(push_df))
+    print(f"total length of login df: {len(login_df)}, total length length of push df: {len(push_df)}")
+    print()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Do analysis on push and log data')
