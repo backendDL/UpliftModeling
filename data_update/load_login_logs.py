@@ -107,7 +107,6 @@ def main(args):
     if args.prefix[-1] != "_":
         args.prefix += "_"
     file_name = args.prefix + file_name if args.prefix is not None else file_name
-
     save_path = os.path.join(args.save_path, file_name)
 
     df.to_csv(save_path)
