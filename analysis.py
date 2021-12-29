@@ -3,7 +3,7 @@ import json
 import argparse
 import datetime
 from datetime import timedelta
-from typing import Tuple, Optional
+from typing import Tuple, Dict, Any, List
 
 import numpy as np
 import pandas as pd
@@ -23,6 +23,13 @@ def prepare_data(args) -> Tuple[pd.DataFrame]:
     push_df = push_df.drop_duplicates(["pushTime", "game_id"], keep="last")
 
     return login_df, push_df
+
+
+def _get_time_frame(time, window_before_in_hours, window_after_in_hours):
+    start = time - timedelta(hours=window_before_in_hours)
+    end = time + timedelta(hours=window_after_in_hours)
+    return start, end
+
 
 def get_available_pushes(
     push_df: pd.DataFrame, 
@@ -47,21 +54,21 @@ def get_available_pushes(
         for row in subset.itertuples():
             
             time_1 = row.pushTime
-            start_1 = time_1 - timedelta(hours=window_before_in_hours)
-            end_1 = time_1 + timedelta(hours=window_after_in_hours)
+            start_1, end_1 = _get_time_frame(time_1, window_before_in_hours, window_after_in_hours)
             
-            count_before = np.sum((subset["pushTime"] >= start_1) & (subset["pushTime"] <= time_1))
+            count_before = np.sum((subset["pushTime"] >= start_1) & (subset["pushTime"] < time_1))
             count_after = np.sum((subset["pushTime"] > time_1) & (subset["pushTime"] <= end_1))
 
             time_0 = time_1 - timedelta(hours=interval_in_hours)
-            start_0 = time_0 - timedelta(hours=window_before_in_hours)
-            end_0 = time_0 + timedelta(hours=window_after_in_hours)
+            start_0, end_0 = _get_time_frame(time_0, window_before_in_hours, window_after_in_hours)
 
             count_0 = np.sum((subset["pushTime"] >= start_0) & (subset["pushTime"] <= end_0))
 
-            if (count_0 == 0) and (count_before+count_after == 1):
+            if (count_0 == 0) and (count_before == 0):
+                if (str(row.pushText).count("광고") == 0) and (str(row.title).count("광고") == 0):
+                    continue
                 result = {
-                    "pushTime": str(row.pushTime),
+                    "pushTime": row.pushTime,
                     "game_id": str(row.game_id),
                     "author": str(row.author),
                     "content": str(row.content),
@@ -75,6 +82,30 @@ def get_available_pushes(
     return available_pushes
 
 
+def count_data_points(
+    login_df: pd.DataFrame,
+    time: datetime.datetime,
+    window_before_in_hours: int=48, 
+    window_after_in_hours: int=24, 
+):
+    start, end = _get_time_frame(time, window_before_in_hours, window_after_in_hours)
+    subset = login_df[(login_df["inDate"] >= start) & (login_df["inDate"] <= end)]
+    cnt = len(subset["gamer_id"].unique())
+    return cnt
+
+def count_all_data_points(
+    pushes: List[Dict[str, Any]],
+    login_df: pd.DataFrame,
+    window_before_in_hours: int = 48,
+    window_after_in_hours: int = 24,
+    interval: int = 168,
+):
+    results_1 = [count_data_points(login_df, push["pushTime"], window_before_in_hours, window_after_in_hours) for push in pushes]
+    results_0 = [count_data_points(login_df, push["pushTime"] - timedelta(hours=interval), window_before_in_hours, window_after_in_hours) for push in pushes]
+    print(f"unique gamer_id: {sum(results_1)}, {sum(results_0)}")
+    return results_1, results_0
+
+
 def main(args):
     login_df, push_df = prepare_data(args)
     print(f"total length of login df: {len(login_df)}, total length length of push df: {len(push_df)}")
@@ -84,7 +115,10 @@ def main(args):
     print(f"Number of available pushes: {len(available_pushes)}")
 
     with open("available_pushes.json", "w") as f:
-        json.dump(available_pushes, f, indent=4, ensure_ascii=False)
+        json_dict = [{k: str(v) for k, v in push.items()} for push in available_pushes]
+        json.dump(json_dict, f, indent=4, ensure_ascii=False)
+
+    all_results = count_all_data_points(available_pushes, login_df, args.window_before, args.window_after, args.interval,)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Do analysis on push and log data')
