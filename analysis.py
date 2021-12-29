@@ -1,6 +1,7 @@
 import os
 import argparse
 import datetime
+from datetime import timedelta
 from typing import Tuple, Optional
 
 import pandas as pd
@@ -10,6 +11,12 @@ from data_update.prepare_data import prepare_login_df, prepare_push_df
 def prepare_data(args) -> Tuple[pd.DataFrame]:
     login_df = prepare_login_df(args.login_url, args.start_date, args.end_date, args.save_path, args.login_prefix, args.overwrite)
     push_df = prepare_push_df(args.push_url, args.save_path, args.push_file_name, args.overwrite)
+
+    login_df["inDate"] = pd.to_datetime(login_df["inDate"].apply(lambda x: x[:-1])) + timedelta(hours=9) # KST
+    push_df["pushTime"] = pd.to_datetime(push_df["pushTime"].apply(lambda x: x[:-1])) # already KST
+
+    login_df = login_df[(login_df["inDate"] >= args.start_date) & (login_df["inDate"] <= args.end_date)]
+
     return login_df, push_df
 
 def main(args):

@@ -1,7 +1,7 @@
 import os
 import argparse
 import datetime
-from typing import Tuple, Optional
+from typing import Tuple, Union, Optional
 
 import pandas as pd
 
@@ -10,12 +10,15 @@ from .load_push_logs import get_push_df
 
 def prepare_login_df(
     url: str,
-    start_date: datetime.datetime, 
-    end_date: datetime.datetime,
+    start_date: Union[datetime.datetime, str], 
+    end_date: Union[datetime.datetime, str],
     save_path: str,
     prefix: Optional[str] = None, 
     overwrite: bool = False,
 ) -> pd.DataFrame:
+
+    start_date = datetime.datetime.fromisoformat(start_date) if isinstance(start_date, str) else start_date
+    end_date = datetime.datetime.fromisoformat(end_date) if isinstance(end_date, str) else end_date
 
     dfs = []
 
