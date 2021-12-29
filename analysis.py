@@ -17,7 +17,10 @@ def prepare_data(args) -> Tuple[pd.DataFrame]:
     login_df["inDate"] = pd.to_datetime(login_df["inDate"].apply(lambda x: x[:-1])) + timedelta(hours=9) # KST
     push_df["pushTime"] = pd.to_datetime(push_df["pushTime"].apply(lambda x: x[:-1])) # already KST
 
+    print(f"push data available from {min(push_df['pushTime'])} to {max(push_df['pushTime'])}")
+
     push_df = push_df[(push_df["pushTime"] >= args.start_date) & (push_df["pushTime"] <= args.end_date)]
+    push_df = push_df.drop_duplicates(["pushTime", "game_id"], keep="last")
 
     return login_df, push_df
 
@@ -41,13 +44,14 @@ def get_available_pushes(
     for game_id in game_ids:
         subset = push_df[push_df["game_id"] == game_id]
 
-        for push_id in range(len(subset)):
+        for row in subset.itertuples():
             
-            time_1 = subset["pushTime"].iloc[push_id]
+            time_1 = row.pushTime
             start_1 = time_1 - timedelta(hours=window_before_in_hours)
             end_1 = time_1 + timedelta(hours=window_after_in_hours)
             
-            count_1 = np.sum((subset["pushTime"] >= start_1) & (subset["pushTime"] <= end_1))
+            count_before = np.sum((subset["pushTime"] >= start_1) & (subset["pushTime"] <= time_1))
+            count_after = np.sum((subset["pushTime"] > time_1) & (subset["pushTime"] <= end_1))
 
             time_0 = time_1 - timedelta(hours=interval_in_hours)
             start_0 = time_0 - timedelta(hours=window_before_in_hours)
@@ -55,10 +59,17 @@ def get_available_pushes(
 
             count_0 = np.sum((subset["pushTime"] >= start_0) & (subset["pushTime"] <= end_0))
 
-            if (count_0 == 0) and (count_1 >= 1):
-                result = {k: str(push_df.iloc[push_id, i]) for i, k in enumerate(push_df.iloc[push_id].index)}
-                result.update({"count_1": int(count_1)})
-                result.update({"count_0": int(count_0)})
+            if (count_0 == 0) and (count_before+count_after == 1):
+                result = {
+                    "pushTime": str(row.pushTime),
+                    "game_id": str(row.game_id),
+                    "author": str(row.author),
+                    "content": str(row.content),
+                    "pushText": str(row.pushText),
+                    "title": str(row.title),
+                    "count_1": int(count_before+count_after),
+                    "count_0": int(count_0)
+                }
                 available_pushes.append(result)
             
     return available_pushes
