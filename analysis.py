@@ -15,7 +15,7 @@ def prepare_data(args) -> Tuple[pd.DataFrame]:
     login_df["inDate"] = pd.to_datetime(login_df["inDate"].apply(lambda x: x[:-1])) + timedelta(hours=9) # KST
     push_df["pushTime"] = pd.to_datetime(push_df["pushTime"].apply(lambda x: x[:-1])) # already KST
 
-    login_df = login_df[(login_df["inDate"] >= args.start_date) & (login_df["inDate"] <= args.end_date)]
+    push_df = push_df[(push_df["pushTime"] >= args.start_date) & (push_df["pushTime"] <= args.end_date)]
 
     return login_df, push_df
 
