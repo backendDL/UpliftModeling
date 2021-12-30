@@ -56,6 +56,7 @@ def get_available_pushes(
             time_1 = row.pushTime
             start_1, end_1 = _get_time_frame(time_1, window_before_in_hours, window_after_in_hours)
             
+            count_exact = np.sum(subset["pushTime"] == time_1)
             count_before = np.sum((subset["pushTime"] >= start_1) & (subset["pushTime"] < time_1))
             count_after = np.sum((subset["pushTime"] > time_1) & (subset["pushTime"] <= end_1))
 
@@ -64,20 +65,22 @@ def get_available_pushes(
 
             count_0 = np.sum((subset["pushTime"] >= start_0) & (subset["pushTime"] <= end_0))
 
-            if (count_0 == 0) and (count_before == 0):
-                if (str(row.pushText).count("광고") == 0) and (str(row.title).count("광고") == 0):
-                    continue
-                result = {
-                    "pushTime": row.pushTime,
-                    "game_id": str(row.game_id),
-                    "author": str(row.author),
-                    "content": str(row.content),
-                    "pushText": str(row.pushText),
-                    "title": str(row.title),
-                    "count_1": int(count_before+count_after),
-                    "count_0": int(count_0)
-                }
-                available_pushes.append(result)
+            if (count_0 == 0) and (count_before+count_after == 0):
+                if str(row.pushText).count("광고") + str(row.title).count("광고") + str(row.content).count("광고") > 0:
+                    result = {
+                        "pushTime": row.pushTime,
+                        "game_id": str(row.game_id),
+                        "author": str(row.author),
+                        "content": str(row.content),
+                        "pushText": str(row.pushText),
+                        "title": str(row.title),
+                        "count_1": int(count_before+count_after+count_exact),
+                        "count_0": int(count_0)
+                    }
+                    available_pushes.append(result)
+
+                else:
+                    print(f"title: {row.title}, push text: {row.pushText}, content: {row.content}")
             
     return available_pushes
 
@@ -87,10 +90,11 @@ def count_data_points(
     time: datetime.datetime,
     window_before_in_hours: int=48, 
     window_after_in_hours: int=24, 
-):
+) -> int:
     start, end = _get_time_frame(time, window_before_in_hours, window_after_in_hours)
     subset = login_df[(login_df["inDate"] >= start) & (login_df["inDate"] <= end)]
     cnt = len(subset["gamer_id"].unique())
+    total = len(subset)
     return cnt
 
 def count_all_data_points(
@@ -99,7 +103,7 @@ def count_all_data_points(
     window_before_in_hours: int = 48,
     window_after_in_hours: int = 24,
     interval: int = 168,
-):
+) -> Tuple[List[int]]:
     results_1 = [count_data_points(login_df, push["pushTime"], window_before_in_hours, window_after_in_hours) for push in pushes]
     results_0 = [count_data_points(login_df, push["pushTime"] - timedelta(hours=interval), window_before_in_hours, window_after_in_hours) for push in pushes]
     print(f"unique gamer_id: {sum(results_1)}, {sum(results_0)}")
@@ -114,11 +118,14 @@ def main(args):
     available_pushes = get_available_pushes(push_df, args.window_before, args.window_after, args.interval, sampling_type="before")
     print(f"Number of available pushes: {len(available_pushes)}")
 
-    with open("available_pushes.json", "w") as f:
-        json_dict = [{k: str(v) for k, v in push.items()} for push in available_pushes]
-        json.dump(json_dict, f, indent=4, ensure_ascii=False)
+    cnt1, cnt0 = count_all_data_points(available_pushes, login_df, args.window_before, args.window_after, args.interval,)
 
-    all_results = count_all_data_points(available_pushes, login_df, args.window_before, args.window_after, args.interval,)
+    with open("available_pushes.json", "w") as f:
+        json_dicts = [{k: str(v) for k, v in push.items()} for push in available_pushes]
+        for idx, j in enumerate(json_dicts):
+            j["dataPoints_1"] = cnt1[idx]
+            j["dataPoints_0"] = cnt0[idx]
+        json.dump(json_dicts, f, indent=4, ensure_ascii=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Do analysis on push and log data')
