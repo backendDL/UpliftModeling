@@ -106,7 +106,7 @@ def count_all_data_points(
 ) -> Tuple[List[int]]:
     results_1 = [count_data_points(login_df, push["pushTime"], window_before_in_hours, window_after_in_hours) for push in pushes]
     results_0 = [count_data_points(login_df, push["pushTime"] - timedelta(hours=interval), window_before_in_hours, window_after_in_hours) for push in pushes]
-    print(f"unique gamer_id: {sum(results_1)}, {sum(results_0)}")
+    print(f"number of unique gamer_ids: {sum(results_1)}, {sum(results_0)}")
     return results_1, results_0
 
 
@@ -115,17 +115,18 @@ def main(args):
     print(f"total length of login df: {len(login_df)}, total length length of push df: {len(push_df)}")
     print()
 
-    available_pushes = get_available_pushes(push_df, args.window_before, args.window_after, args.interval, sampling_type="before")
-    print(f"Number of available pushes: {len(available_pushes)}")
+    for interval in args.intervals:
+        available_pushes = get_available_pushes(push_df, args.window_before, args.window_after, interval, sampling_type="before")
+        print(f"Number of available pushes: {len(available_pushes)}")
 
-    cnt1, cnt0 = count_all_data_points(available_pushes, login_df, args.window_before, args.window_after, args.interval,)
+        cnt1, cnt0 = count_all_data_points(available_pushes, login_df, args.window_before, args.window_after, interval,)
 
-    with open("available_pushes.json", "w") as f:
-        json_dicts = [{k: str(v) for k, v in push.items()} for push in available_pushes]
-        for idx, j in enumerate(json_dicts):
-            j["dataPoints_1"] = cnt1[idx]
-            j["dataPoints_0"] = cnt0[idx]
-        json.dump(json_dicts, f, indent=4, ensure_ascii=False)
+        with open(f"available_pushes_{str(interval)}hr.json", "w") as f:
+            json_dicts = [{k: str(v) for k, v in push.items()} for push in available_pushes]
+            for idx, j in enumerate(json_dicts):
+                j["dataPoints_1"] = cnt1[idx]
+                j["dataPoints_0"] = cnt0[idx]
+            json.dump(json_dicts, f, indent=4, ensure_ascii=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Do analysis on push and log data')
@@ -145,8 +146,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--window_before', type=int, metavar='HOURS', default=48, help='window size before the push time in hour. Look for the game_id/time available to sample (default: 48)')
     parser.add_argument('--window_after', type=int, metavar='HOURS', default=24, help='window size after the push time in hour. Look for the game_id/time available to sample (default: 24)')
-    parser.add_argument('--interval', type=int, metavar='HOURS', default=168, help='interval between t=0 and t=1. Look for the game_id/time available to sample (default: 168)')
+    parser.add_argument('--intervals', type=int, nargs='+', metavar='HOURS', default=[168], help='intervals between t=0 and t=1. You can pass in one interval or more. Look for the game_id/time available to sample (default: 168)')
+    parser.add_argument('--sampling_type', type=str, default="before", choices=["before", "after", "both"], help="sampling type (default: before)")
 
     args = parser.parse_args()
+
+    print(args)
 
     main(args)
