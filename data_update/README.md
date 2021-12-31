@@ -15,11 +15,18 @@ For example, the file structure should be like below:
 ├── README.md
 ├── analysis.py
 ├── data
+│   ├── crud
+│       ├── 0.db
+│       ├── 1.db
+│       ...
+│       └── xxx.db
 │   ├── login_2021-12-01.csv
 │   ├── login_2021-12-02.csv
 │   ...
+│   └── push.csv
 ├── data_update
 │   ├── README.md
+│   ├── load_crud_logs.py
 │   ├── load_login_logs.py
 │   ├── load_push_logs.py
 │   └── prepare_data.py
@@ -32,6 +39,12 @@ You can use those two executables to download the data file individually.
 Use `analysis.py` if you want to download all files at once.
 
 You have to pass the URL with the `--url` flag (**required!!!**).
+
+### `data_update/load_push_logs.py`
+
+```bash
+python data_update/load_crud_logs.py --help
+```
 
 ### `data_update/load_login_logs.py`
 
@@ -70,6 +83,7 @@ optional arguments:
 Please change the working directory to the root and run the commands below.
 
 ```bash
+python data_update/load_crud_logs.py --game_id 1572
 python data_update/load_login_logs.py --url https://xxx.com --date 2021-12-03 --prefix login
 python data_update/load_push_logs.py --url http://yyy.com --save_file push.csv
 ```
