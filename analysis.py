@@ -39,6 +39,7 @@ def get_available_pushes(
     sampling_type: str="before",
 ):
 
+    # TODO: implement after method
     available_types = ["before", "after", "both"]
     if sampling_type not in available_types:
         raise ValueError(f"type not in available types {available_types}")
@@ -65,22 +66,28 @@ def get_available_pushes(
 
             count_0 = np.sum((subset["pushTime"] >= start_0) & (subset["pushTime"] <= end_0))
 
-            if (count_0 == 0) and (count_before+count_after == 0):
-                if str(row.pushText).count("광고") + str(row.title).count("광고") + str(row.content).count("광고") > 0:
-                    result = {
-                        "pushTime": row.pushTime,
-                        "game_id": str(row.game_id),
-                        "author": str(row.author),
-                        "content": str(row.content),
-                        "pushText": str(row.pushText),
-                        "title": str(row.title),
-                        "count_1": int(count_before+count_after+count_exact),
-                        "count_0": int(count_0)
-                    }
-                    available_pushes.append(result)
+            # TODO: add arguments for filtering out
+            if not (count_0 == 0) or not (count_before+count_after == 0):
+                # not appropriate conditions for sampling
+                # we want to sample (at least) two seperate points
+                continue
+                
+            if str(row.pushText).count("광고") + str(row.title).count("광고") + str(row.content).count("광고") == 0:
+                # probably, not a proper push notification (due to the Information Communication Act in Korea)
+                print(f"title: {row.title}, push text: {row.pushText}, content: {row.content}")
+                continue
 
-                else:
-                    print(f"title: {row.title}, push text: {row.pushText}, content: {row.content}")
+            result = {
+                "pushTime": row.pushTime,
+                "game_id": str(row.game_id),
+                "author": str(row.author),
+                "content": str(row.content),
+                "pushText": str(row.pushText),
+                "title": str(row.title),
+                "count_1": int(count_before+count_after+count_exact),
+                "count_0": int(count_0)
+            }
+            available_pushes.append(result)
             
     return available_pushes
 
@@ -100,8 +107,8 @@ def count_data_points(
 def count_all_data_points(
     pushes: List[Dict[str, Any]],
     login_df: pd.DataFrame,
-    window_before_in_hours: int = 48,
-    window_after_in_hours: int = 24,
+    window_before_in_hours: int = 48, # T = 0, 1 / X
+    window_after_in_hours: int = 24, # Y = 0, 1
     interval: int = 168,
 ) -> Tuple[List[int]]:
     results_1 = [count_data_points(login_df, push["pushTime"], window_before_in_hours, window_after_in_hours) for push in pushes]
