@@ -109,7 +109,7 @@ def main(args):
     file_name = args.prefix + file_name if args.prefix is not None else file_name
     save_path = os.path.join(args.save_path, file_name)
 
-    df.to_csv(save_path)
+    df.to_csv(save_path, index=False, encoding='utf-8')
     print(f"Saved the data frame at {os.path.abspath(save_path)}")
 
 
