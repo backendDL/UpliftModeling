@@ -23,6 +23,10 @@ def prepare_login_df(
 
     dfs = []
 
+    if not os.path.isdir(save_path):
+        print(f"Create the folder and save data into {os.path.abspath(save_path)}")
+        os.mkdir(save_path)
+
     dates = pd.date_range(start=start_date, end=end_date).to_pydatetime().tolist()
     file_names = [date.strftime("%Y-%m-%d") + ".csv" for date in dates]
     if prefix is not None:
@@ -47,6 +51,11 @@ def prepare_push_df(
     file_name: str,
     overwrite: bool = False,
 ) -> pd.DataFrame:
+
+    if not os.path.isdir(save_path):
+        print(f"Create the folder and save data into {os.path.abspath(save_path)}")
+        os.mkdir(save_path)
+
     file_path = os.path.join(save_path, file_name)
     if os.path.isfile(file_path) and not overwrite:
         print(f"Push data file ({file_path}) exists. Load the existing csv file.")
