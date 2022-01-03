@@ -11,7 +11,7 @@ import pandas as pd
 from data_update.prepare_data import prepare_login_df, prepare_push_df
 
 def prepare_data(args) -> Tuple[pd.DataFrame]:
-    login_df = prepare_login_df(args.login_url, args.start_date, args.end_date, args.save_path, args.login_prefix, args.overwrite)
+    login_df = prepare_login_df(args.login_url, args.start_date - timedelta(hours=max(args.intervals)), args.end_date, args.save_path, args.login_prefix, args.overwrite)
     push_df = prepare_push_df(args.push_url, args.save_path, args.push_file_name, args.overwrite)
 
     login_df["inDate"] = pd.to_datetime(login_df["inDate"].apply(lambda x: x[:-1])) + timedelta(hours=9) # KST
@@ -72,9 +72,10 @@ def get_available_pushes(
                 # we want to sample (at least) two seperate points
                 continue
                 
-            if str(row.pushText).count("광고") + str(row.title).count("광고") + str(row.content).count("광고") == 0:
+            if (str(row.pushText) + str(row.title) + str(row.content)).count("광고") == 0 and args.ignore_invalid_push:
                 # probably, not a proper push notification (due to the Information Communication Act in Korea)
-                print(f"title: {row.title}, push text: {row.pushText}, content: {row.content}")
+                if args.verbose:
+                    print(f"title: {row.title}, push text: {row.pushText}, content: {row.content}")
                 continue
 
             result = {
@@ -142,7 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('--login_url', type=str, metavar='URL', required=True, help='url to login data ES server')
 
     parser.add_argument('--overwrite', action='store_true')
-    parser.add_argument('--download', action='store_true')
+    # parser.add_argument('--download', action='store_true')
 
     parser.add_argument('--save_path', type=str, metavar='PATH', default='./data', help='save path (default: ./data)')
     parser.add_argument("--push_file_name", type=str, metavar='X.csv', default="push.csv", help='save file name (default: push.csv)')
@@ -155,6 +156,9 @@ if __name__ == '__main__':
     parser.add_argument('--window_after', type=int, metavar='HOURS', default=24, help='window size after the push time in hour. Look for the game_id/time available to sample (default: 24)')
     parser.add_argument('--intervals', type=int, nargs='+', metavar='HOURS', default=[168], help='intervals between t=0 and t=1. You can pass in one interval or more. Look for the game_id/time available to sample (default: 168)')
     parser.add_argument('--sampling_type', type=str, default="before", choices=["before", "after", "both"], help="sampling type (default: before)")
+    parser.add_argument('--ignore_invalid_push', action='store_true', help="ignore invalid true")
+
+    parser.add_argument('-v', '--verbose', action='store_true', help="verbose")
 
     args = parser.parse_args()
 
