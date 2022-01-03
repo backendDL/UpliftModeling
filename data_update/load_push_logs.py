@@ -30,7 +30,7 @@ def get_push_df(url: str) -> pd.DataFrame:
 def main(args):
     df = get_push_df(args.url)
     save_path = os.path.join(args.save_path, args.save_file)
-    df.to_csv(save_path, encoding='utf-8')
+    df.to_csv(save_path, index=False, encoding='utf-8')
     print(f"Dataframe saved as csv at {os.path.abspath(save_path)}")
     
 

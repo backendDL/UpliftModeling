@@ -7,6 +7,7 @@ import pandas as pd
 
 from .load_login_logs import get_login_df
 from .load_push_logs import get_push_df
+from .load_crud_logs import get_crud_df
 
 def prepare_login_df(
     url: str,
@@ -35,7 +36,7 @@ def prepare_login_df(
         else:
             print(f"Login data on {date.strftime('%Y-%m-%d')} not in {save_path}. Download it from the server.")
             df = get_login_df(url, date)
-            df.to_csv(file)
+            df.to_csv(file, encoding='utf-8', index=False)
         dfs.append(df)
 
     return pd.concat(dfs, axis=0)
@@ -53,5 +54,20 @@ def prepare_push_df(
     else:
         print(f"{file_path} does not exist. Download it from the server.")
         df = get_push_df(url)
-        df.to_csv(file_path)
+        df.to_csv(file_path, encoding='utf-8', index=False)
+    return df
+
+def prepare_crud_df(
+    save_path: str,
+    game_id: int,
+    overwrite: bool = False,
+) -> pd.DataFrame:
+    file_path = os.path.join(save_path, f'crud_{game_id}.csv')
+    if os.path.isfile(file_path) and not overwrite:
+        print(f"CRUD data file ({file_path}) exists. Load the existing csv file.")
+        df = pd.read_csv(file_path, encoding='utf-8')
+    else:
+        print(f"{file_path} does not exist. Create it from the db.")
+        df = get_crud_df(save_path, game_id)
+        df.to_csv(file_path, encoding='utf-8', index=False)
     return df
