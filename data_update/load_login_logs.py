@@ -84,22 +84,22 @@ def get_login_log(es, date):
     result.inDate = (pd.to_datetime(result.inDate) + datetime.timedelta(hours=9)).dt.strftime('%Y-%m-%dT%H:%M:%S.000') # 원본 데이터는 UTC. KST 처리 필요.
     return result
 
-def get_login_df(url: str, date: datetime.datetime):
+def get_login_df(url: str, date: datetime.datetime, verbose: bool = False):
     if _is_server_available():
         es = get_es(url)
-        print("Successfully connected to Elastic Search server")
+        if verbose: print("Successfully connected to Elastic Search server")
 
         df = get_login_log(es, date)
-        print(f"Queried login data at {date}")
-        print(f"Length of the data frame {len(df)}")
+        if verbose: print(f"Queried login data at {date}")
+        if verbose: print(f"Length of the data frame {len(df)}")
         return df
 
     else:
-        print("Server not available. Please request it later in between 6 am to 23 pm.")
+        if verbose: print("Server not available. Please request it later in between 6 am to 23 pm.")
         return None
 
 def main(args):
-    df = get_login_df(args.url, args.date)
+    df = get_login_df(args.url, args.date, args.verbose)
     if df is None: 
         return
     
@@ -121,6 +121,8 @@ if __name__ == '__main__':
     parser.add_argument('--date', type=datetime.datetime.fromisoformat, metavar='DATE', default='2021-12-01', help='date of format yyyy-mm-dd (default: 2021-12-01)')
     parser.add_argument('--save_path', type=str, metavar='PATH', default='./data', help='save path (default: ./data)')
     parser.add_argument('--prefix', type=str, metavar='X', default='login', help="prefix to the saved csv file (default: login)")
+
+    parser.add_argument('-v', '--verbose', action='store_true')
 
     args = parser.parse_args()
     main(args)

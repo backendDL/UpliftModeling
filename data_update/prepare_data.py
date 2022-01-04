@@ -16,6 +16,7 @@ def prepare_login_df(
     save_path: str,
     prefix: Optional[str] = None, 
     overwrite: bool = False,
+    verbose: bool = False,
 ) -> pd.DataFrame:
 
     start_date = datetime.datetime.fromisoformat(start_date) if isinstance(start_date, str) else start_date
@@ -24,7 +25,7 @@ def prepare_login_df(
     dfs = []
 
     if not os.path.isdir(save_path):
-        print(f"Create the folder and save data into {os.path.abspath(save_path)}")
+        if verbose: print(f"Create the folder and save data into {os.path.abspath(save_path)}")
         os.mkdir(save_path)
 
     dates = pd.date_range(start=start_date, end=end_date).to_pydatetime().tolist()
@@ -35,10 +36,10 @@ def prepare_login_df(
 
     for date, file in zip(dates, file_names):
         if os.path.isfile(file) and not overwrite:
-            print(f"Login data on {date.strftime('%Y-%m-%d')} already in {save_path}. Load the existing csv file.")
+            if verbose: print(f"Login data on {date.strftime('%Y-%m-%d')} already in {save_path}. Load the existing csv file.")
             df = pd.read_csv(file, encoding='utf-8')
         else:
-            print(f"Login data on {date.strftime('%Y-%m-%d')} not in {save_path}. Download it from the server.")
+            if verbose: print(f"Login data on {date.strftime('%Y-%m-%d')} not in {save_path}. Download it from the server.")
             df = get_login_df(url, date)
             df.to_csv(file, encoding='utf-8', index=False)
         dfs.append(df)
@@ -50,18 +51,19 @@ def prepare_push_df(
     save_path: str,
     file_name: str,
     overwrite: bool = False,
+    verbose: bool = False,
 ) -> pd.DataFrame:
 
     if not os.path.isdir(save_path):
-        print(f"Create the folder and save data into {os.path.abspath(save_path)}")
+        if verbose: print(f"Create the folder and save data into {os.path.abspath(save_path)}")
         os.mkdir(save_path)
 
     file_path = os.path.join(save_path, file_name)
     if os.path.isfile(file_path) and not overwrite:
-        print(f"Push data file ({file_path}) exists. Load the existing csv file.")
+        if verbose: print(f"Push data file ({file_path}) exists. Load the existing csv file.")
         df = pd.read_csv(file_path, encoding='utf-8')
     else:
-        print(f"{file_path} does not exist. Download it from the server.")
+        if verbose: print(f"{file_path} does not exist. Download it from the server.")
         df = get_push_df(url)
         df.to_csv(file_path, encoding='utf-8', index=False)
     return df
@@ -70,13 +72,14 @@ def prepare_crud_df(
     save_path: str,
     game_id: int,
     overwrite: bool = False,
+    verbose: bool = False,
 ) -> pd.DataFrame:
     file_path = os.path.join(save_path, f'crud_{game_id}.csv')
     if os.path.isfile(file_path) and not overwrite:
-        print(f"CRUD data file ({file_path}) exists. Load the existing csv file.")
+        if verbose: print(f"CRUD data file ({file_path}) exists. Load the existing csv file.")
         df = pd.read_csv(file_path, encoding='utf-8')
     else:
-        print(f"{file_path} does not exist. Create it from the db.")
+        if verbose: print(f"{file_path} does not exist. Create it from the db.")
         df = get_crud_df(save_path, game_id)
         df.to_csv(file_path, encoding='utf-8', index=False)
     return df
