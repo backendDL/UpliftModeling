@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 
 import torch
-from torch._C import Value
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 
 from tqdm import tqdm
 
@@ -80,90 +79,45 @@ class UpliftDataset(Dataset):
         return (X, t, y)
 
 
-class BackendJsonDataset:
-    def __init__(
-        self,
-        json_path,
-    ):
-        with open(json_path, "r") as f:
-            self.data = json.load(f)
-        self.game_ids = list(self.data.keys())
-
-    def get_game_ids(self):
-        return self.game_ids
-
-    def get_df(self, game_id: Union[str, int]) -> Dict[str, List]:
-        game_id = str(game_id)
-        if game_id not in self.game_ids:
-            raise ValueError("game_id not in self.data")
-        jsons = self.data[game_id]
-
-        X = []
-        t = []
-        y = []
-        errors = []
-
-        for idx, j in enumerate(jsons):
-            X_t0 = pd.read_json(j["X_t0"], orient='table')
-            if np.sum(X_t0["Login"]) > 0:
-                X_t0 = X_t0.reset_index()
-                X_t0["index"] = pd.to_datetime(X_t0["index"])
-                X.append(X_t0)
-                t.append(0)
-                y.append(j["y_t0"])
-            else:
-                errors.append(idx)
-            
-            X_t1 = pd.read_json(j["X_t1"], orient='table')
-            if np.sum(X_t1["Login"]) > 0:
-                X_t1 = X_t1.reset_index()
-                X_t1["index"] = pd.to_datetime(X_t1["index"])
-                X.append(X_t1)
-                t.append(1)
-                y.append(j["y_t1"])
-            else:
-                errors.append(idx)
-        
-        return {"X": X, "t": t, "y": y, "errors": errors}
-
-    def get_all_dfs(self) -> Dict[str, List]:
-        
-        results = {"X": [], "t": [], "y": [], "errors": []}
-
-        for game_id in self.game_ids:
-            temp = self.get_df(game_id)
-            for k in results.keys():
-                results[k].extend(temp[k])
-
-        return results
-        
-
-
 class BackendDataset(Dataset):
     def __init__(
         self,
-        data: Dict[str, List],
-        num_features: int = 1,
+        json_path: str = "./dataset/dataset.json",
+        data_path: str = "./dataset",
     ):
-        assert len(data["X"]) == len(data["y"]), f"X's and t's must have the same length"
-        assert len(data["t"]) == len(data["y"]), f"t's and y's must have the same length"
+        self.data_path = data_path
 
-        self.data = data
-        self.num_features = num_features
+        with open(json_path, "r") as f:
+            _json = json.load(f)
+        
+        self.df = pd.DataFrame(_json)
+        
+        self.df["game_id"] = self.df["file_name"].apply(lambda x: x.split("_")[1])
+        self.df["push_date"] = pd.to_datetime(self.df["file_name"].apply(lambda x: x.split("_")[2]))
+        self.df["gamer_id"] = self.df["file_name"].apply(lambda x: x.split("_")[3].replace(".csv", ""))
 
-        self.X = self.data["X"]
-        self.t = self.data["t"]
-        self.y = self.data["y"]
+        self.game_ids = self.df["game_id"].unique().tolist()
+    
+    def get_game_ids(self):
+        return self.game_ids
 
     def __len__(self):
-        return len(self.X)
+        return len(self.df)
 
     def __getitem__(self, idx):
-        emb = transform(self.X[idx]["index"]) # (L, 4)
-        _X = torch.tensor(self.X[idx].iloc[:, 1:(1+self.num_features)].to_numpy(), dtype=torch.float32) # (L, num_features)
-        X = torch.cat([emb, _X], dim=1) # (L, 4+num_features)
-        t = torch.tensor(self.t[idx], dtype=torch.float32)
-        y = torch.tensor(self.y[idx], dtype=torch.float32)
+
+        file_name = self.df.file_name[idx]
+        t = torch.tensor(self.df.t[idx])
+        y = torch.tensor(self.df.y[idx])
+
+        data = pd.read_csv(os.path.join(self.data_path, file_name))
+        data.iloc[:, 0] = pd.to_datetime(data.iloc[:, 0])
+
+        emb = transform(data.iloc[:, 0])
+        login = torch.tensor(data.login).unsqueeze(1)
+        crud = torch.tensor(data.crud).unsqueeze(1)
+
+        X = torch.cat([emb, login, crud], axis=1)
 
         return (X, t, y)
 
