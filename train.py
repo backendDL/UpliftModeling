@@ -48,15 +48,18 @@ def split_by_indices(dataset, train_ids: List[int]):
     return train_set, eval_set
 
 def split_dataset(args, dataset: Dataset):
+
+    train_ratio = 1.0 - args.split_ratio
+
     if args.split_method == "random":
-        if (args.split_ratio > 1.0) or (args.split_ratio < 0.0):
+        if (train_ratio > 1.0) or (train_ratio < 0.0):
             raise ValueError(f"args.split_ratio must be between 0 and 1, but got {args.split_ratio}.")
-        elif args.split_ratio == 0.0:
+        elif train_ratio == 0.0:
             return dataset, None
-        elif args.split_ratio == 1.0:
+        elif train_ratio == 1.0:
             return None, dataset
         else:
-            size = int(len(dataset) * args.split_ratio)
+            size = int(len(dataset) * train_ratio)
             train_ids = torch.randperm(len(dataset))[:size].numpy()
             return split_by_indices(dataset, train_ids)
 
@@ -109,7 +112,7 @@ def train(args, model, train_dl, loss_fn, optimizer, device):
     qini = qini_auc_score(answers, uplifts, treatments)
 
     return {
-        "loss": np.mean(loss),
+        "loss": np.mean(losses),
         "acc": acc,
         "f1": f1,
         "auc": auc,
@@ -159,7 +162,7 @@ def evaluate(args, model, eval_dl, loss_fn, device):
     qini = qini_auc_score(answers, uplifts, treatments)
 
     return {
-        "loss": np.mean(loss),
+        "loss": np.mean(losses),
         "acc": acc,
         "f1": f1,
         "auc": auc,
@@ -178,7 +181,7 @@ def main(args):
     train_set, eval_set = split_dataset(args, dataset)
 
     train_dl = DataLoader(train_set, args.per_device_train_batch_size, shuffle=True) if train_set is not None else None
-    eval_dl = DataLoader(eval_set, args.per_device_train_batch_size, shuffle=False) if eval_set is not None else None
+    eval_dl = DataLoader(eval_set, args.per_device_eval_batch_size, shuffle=False) if eval_set is not None else None
     print(f"Dataset properly loaded with length {len(dataset)}")
 
     loss_fn = DirectUpliftLoss(propensity_score=args.propensity_score, alpha=args.alpha)
@@ -208,7 +211,7 @@ def main(args):
             current_metric = metrics[args.best_metric]
             current_metric = current_metric if args.higher_the_better else -current_metric
 
-            if current_metric > max(saved_metrics.keys()):
+            if len(saved_metrics.keys()) < 5 or current_metric > max(saved_metrics.keys()):
                 saved_metrics[current_metric] = epoch
                 print(f"Saving the best model at epoch {epoch}")
                 torch.save(model.state_dict(), os.path.join(args.save_path, f"best_model_epoch{epoch}.pt"))
