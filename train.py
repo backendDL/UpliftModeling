@@ -2,7 +2,7 @@ import argparse
 import random
 from math import inf
 import os
-from typing import List
+from typing import List, Iterable
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ from sklift.metrics import uplift_auc_score, qini_auc_score
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader, Subset, WeightedRandomSampler
 
 import wandb
 from tqdm import tqdm
@@ -81,6 +81,7 @@ def split_dataset(args, dataset: Dataset):
         else:
             size = int(len(dataset) * train_ratio)
             train_ids = torch.randperm(len(dataset))[:size].numpy()
+            train_ids.sort()
             return split_by_indices(dataset, train_ids)
 
     elif args.split_method == "game_id":
@@ -192,6 +193,23 @@ def evaluate(args, model, eval_dl, loss_fn, device):
         "uplifts": uplifts,
     }
 
+def get_weighted_sampler(targets: Iterable[int]):
+    target = torch.from_numpy(targets.unique())
+    target = target[torch.randperm(len(target))]
+
+    y_cnt = targets.value_counts().tolist()
+    weights_by_class = 1. / torch.tensor(y_cnt, dtype=torch.float)
+    weights_by_class = weights_by_class / sum(weights_by_class) # normalize
+
+    all_weights = weights_by_class[targets]
+    
+    sampler = WeightedRandomSampler(
+        weights=all_weights,
+        num_samples=len(all_weights),
+        replacement=True,
+    )
+    return sampler
+
 
 def main(args):
 
@@ -203,7 +221,13 @@ def main(args):
     dataset = get_dataset(args)
     train_set, eval_set = split_dataset(args, dataset)
 
-    train_dl = DataLoader(train_set, args.per_device_train_batch_size, shuffle=True) if train_set is not None else None
+    if args.use_weighted_sampler:
+        y_train = dataset.df["y"][train_set.indices]
+        sampler = get_weighted_sampler(y_train)
+    else:
+        sampler = None
+
+    train_dl = DataLoader(train_set, args.per_device_train_batch_size, shuffle=True, sampler=sampler) if train_set is not None else None
     eval_dl = DataLoader(eval_set, args.per_device_eval_batch_size, shuffle=False) if eval_set is not None else None
     print(f"Dataset properly loaded with length {len(dataset)}")
 
@@ -264,6 +288,7 @@ if __name__ == '__main__':
     parser.add_argument('--split_method', type=str, default="random", choices=["random", "game_id", "none"])
     parser.add_argument('--eval_game_id', type=str)
     parser.add_argument('--split_ratio', type=float, default=0.2)
+    parser.add_argument('--use_weighted_sampler', action='store_true')
 
     parser.add_argument('--do_train', action='store_true')
     parser.add_argument('--do_eval', action='store_true')
