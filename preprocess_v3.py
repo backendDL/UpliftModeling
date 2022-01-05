@@ -13,7 +13,7 @@ from data_update.prepare_data import *
 
 
 def load_pushes(json_path: str) -> List[Dict]:
-    with open(json_path, "r") as f:
+    with open(json_path, "r", encoding='utf-8') as f:
         pushes = json.load(f)
     return pushes
 
@@ -126,8 +126,8 @@ def main(args):
                 X.to_csv(_individual_path)
                 results.append({"file_name": _file_name, "t": t, "y": y})
 
-    with open(os.path.join(args.save_path, "dataset.json"), "w") as f:
-        json.dump(results, f)
+    with open(os.path.join(args.save_path, "dataset.json"), "w", encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False)
 
 if __name__ == '__main__':
     import argparse
