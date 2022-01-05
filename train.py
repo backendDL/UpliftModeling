@@ -81,7 +81,6 @@ def split_dataset(args, dataset: Dataset):
         else:
             size = int(len(dataset) * train_ratio)
             train_ids = torch.randperm(len(dataset))[:size].numpy()
-            train_ids.sort()
             return split_by_indices(dataset, train_ids)
 
     elif args.split_method == "game_id":
@@ -198,10 +197,8 @@ def get_weighted_sampler(targets: Iterable[int]):
     target = target[torch.randperm(len(target))]
 
     y_cnt = targets.value_counts().tolist()
-    print(y_cnt)
     weights_by_class = 1. / torch.tensor(y_cnt, dtype=torch.float)
     weights_by_class = weights_by_class / sum(weights_by_class) # normalize
-    print(weights_by_class)
 
     all_weights = weights_by_class[targets]
     
@@ -225,7 +222,6 @@ def main(args):
 
     if args.use_weighted_sampler:
         y_train = dataset.df["y"][train_set.indices].reset_index(drop=True)
-        print(y_train[:100])
         sampler = get_weighted_sampler(y_train)
         train_dl = DataLoader(train_set, args.per_device_train_batch_size, sampler=sampler) if train_set is not None else None
     else:
