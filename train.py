@@ -2,6 +2,7 @@ import argparse
 import random
 from math import inf
 import os
+import glob
 from typing import List, Iterable
 
 import numpy as np
@@ -230,6 +231,9 @@ def main(args):
 
     
     eval_dl = DataLoader(eval_set, args.per_device_eval_batch_size, shuffle=False) if eval_set is not None else None
+    if args.do_eval and eval_dl is None:
+        # if no eval data, then use train data for evaluation.
+        eval_dl = train_dl
     print(f"Dataset properly loaded with length {len(dataset)}")
 
     loss_fn = DirectUpliftLoss(propensity_score=args.propensity_score, alpha=args.alpha)
@@ -277,6 +281,31 @@ def main(args):
             metrics["uplifts"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["uplifts"])))
             wandb.log({"eval/"+k: v for k, v in metrics.items()})
 
+    
+    if args.do_predict:
+        if saved_metrics:
+            # if do_eval == True so that evaluation metrics exist
+            best_metric = max(saved_metrics.keys())
+            best_epoch = saved_metrics[best_metric]
+            model_file = os.path.join(args.save_path, f"best_model_epoch{best_epoch}.pt")
+            model.load_state_dict(torch.load(model_file))
+        else:
+            # otherwise, assuming the model state dict with the 
+            model_files = glob.glob(os.path.join(args.save_path, f"best_model*"))
+            model_file  = model_files[-1]
+            model.load_state_dict(torch.load(model_file))
+
+        model.eval()
+        metrics = evaluate(args, model, eval_dl, loss_fn, device)
+
+        file_names = dataset.df.file_name[eval_set.indices]
+        prediction = pd.DataFrame({"file_name": file_names, "prob": metrics["probs"], "uplift": metrics["uplifts"]})
+        prediction.to_csv("prediction.json")
+
+        metrics["epoch"] = epoch
+        metrics["probs"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["probs"])))
+        metrics["uplifts"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["uplifts"])))
+        wandb.log({"pred/"+k: v for k, v in metrics.items()})
 
 if __name__ == '__main__':
 
@@ -293,6 +322,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--do_train', action='store_true')
     parser.add_argument('--do_eval', action='store_true')
+    parser.add_argument('--do_predict', action='store_true')
 
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument('--learning_rate', type=float, default=1e-3, help="learning rate (default: 1e-3)")
