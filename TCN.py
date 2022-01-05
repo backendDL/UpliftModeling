@@ -1,12 +1,4 @@
-import random
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
 class Chomp1d(nn.Module):
@@ -76,7 +68,8 @@ class TCN(nn.Module):
         self.linear = nn.Linear(num_channels[-1], output_size)
 
     def forward(self, inputs):
-        """Inputs have to have dimension (N, C_in, L_in)"""
+        """Inputs have to have dimension (N, L_in, C_in)"""
+        inputs = inputs.transpose(1, 2).contiguous() # [N, C, L] <- original implmentation
         y1 = self.tcn(inputs)
         out = self.linear(y1[:, :, -1])
         return out

@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from model import UpliftWrapperForRNN, DirectUpliftLoss, RNNEmbedding
 from dataset import BackendDataset
+from TCN import TCN
 
 def set_all_seeds(seed, verbose=False):
     torch.manual_seed(seed)
@@ -29,15 +30,25 @@ def set_all_seeds(seed, verbose=False):
     random.seed(seed)
 
 def get_model(args):
-    rnn_module = RNNEmbedding(
-        in_features=6, 
-        hidden_size=args.rnn_hidden_size, 
-        out_features=args.rnn_out_features, 
-        num_layers=args.rnn_num_layers, 
-        dropout=args.rnn_dropout, 
-        bidirectional=False
-    )
-    model = UpliftWrapperForRNN(rnn_module, args.rnn_out_features)
+
+    if args.model_type == "rnn":
+        module = RNNEmbedding(
+            in_features=6, 
+            hidden_size=args.rnn_hidden_size, 
+            out_features=args.rnn_out_features, 
+            num_layers=args.rnn_num_layers, 
+            dropout=args.rnn_dropout, 
+            bidirectional=False
+        )
+    elif args.model_type == "tcn":
+        module = TCN(
+            input_size=6,
+            output_size=args.tcn_out_features,
+            num_channels=args.tcn_num_channels,
+            kernel_size=2,
+            dropout=args.tcn_dropout,
+        )
+    model = UpliftWrapperForRNN(module, args.rnn_out_features)
     return model
 
 def get_dataset(args):
@@ -265,10 +276,16 @@ if __name__ == '__main__':
     parser.add_argument('--per_device_train_batch_size', type=int, default=64)
     parser.add_argument('--per_device_eval_batch_size',  type=int, default=128)
 
+    parser.add_argument('--model_type', type=str, choices=["rnn", "tcn"], default="rnn")
+
     parser.add_argument('--rnn_hidden_size',  type=int, default=16)
     parser.add_argument('--rnn_out_features',  type=int, default=16)
     parser.add_argument('--rnn_num_layers',  type=int, default=1)
     parser.add_argument('--rnn_dropout',  type=float, default=0.2)
+
+    parser.add_argument('--tcn_num_channels', type=int, nargs='+', default=[16])
+    parser.add_argument('--tcn_out_features', type=int, default=16)
+    parser.add_argument('--tcn_dropout', type=float, default=0.2)
 
     parser.add_argument('--cutoff', type=float, default=0.5)
 
