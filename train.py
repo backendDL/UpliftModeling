@@ -197,6 +197,7 @@ def get_weighted_sampler(targets: Iterable[int]):
     target = target[torch.randperm(len(target))]
 
     y_cnt = targets.value_counts().tolist()
+    y_cnt = [c+1000 for c in y_cnt] # reduce the oversampling
     weights_by_class = 1. / torch.tensor(y_cnt, dtype=torch.float)
     weights_by_class = weights_by_class / sum(weights_by_class) # normalize
 
