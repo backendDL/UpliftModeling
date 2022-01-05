@@ -29,7 +29,7 @@ class RNNEmbedding(nn.Module):
 
 class TCNEmbedding(nn.Module):
     def __init__(self, input_size, output_size, num_channels, kernel_size, dropout, num_layers=1, num_ensembles=1):
-        super(TCNEmbedding, self).__init()
+        super(TCNEmbedding, self).__init__()
 
         self.layers = []
         for i in range(num_ensembles):
