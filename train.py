@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader, Subset, WeightedRandomSampler
 import wandb
 from tqdm import tqdm
 
-from model import UpliftWrapperForRNN, DirectUpliftLoss, RNNEmbedding
+from model import UpliftWrapperForRNN, DirectUpliftLoss, RNNEmbedding, TCNEmbedding
 from dataset import BackendDataset
 from TCN import TCN
 
@@ -41,15 +41,19 @@ def get_model(args):
             dropout=args.rnn_dropout, 
             bidirectional=False
         )
+        out_features = args.rnn_out_features
     elif args.model_type == "tcn":
-        module = TCN(
+        module = TCNEmbedding(
             input_size=6,
             output_size=args.tcn_out_features,
             num_channels=args.tcn_num_channels,
             kernel_size=2,
             dropout=args.tcn_dropout,
+            num_layers=args.tcn_num_layers,
+            num_ensembles=args.tcn_num_ensembles,
         )
-    model = UpliftWrapperForRNN(module, args.rnn_out_features)
+        out_features = args.tcn_out_features
+    model = UpliftWrapperForRNN(module, out_features)
     return model
 
 def get_dataset(args):
@@ -342,6 +346,8 @@ if __name__ == '__main__':
     parser.add_argument('--tcn_num_channels', type=int, nargs='+', default=[16])
     parser.add_argument('--tcn_out_features', type=int, default=16)
     parser.add_argument('--tcn_dropout', type=float, default=0.2)
+    parser.add_argument('--tcn_num_layers', type=int, default=1)
+    parser.add_argument('--tcn_num_ensembles', type=int, default=1)
 
     parser.add_argument('--cutoff', type=float, default=0.5)
 

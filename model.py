@@ -2,7 +2,7 @@ from typing import List, Tuple, Optional, Union, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from TCN import TCN, TemporalConvNet
 
 class RNNEmbedding(nn.Module):
     def __init__(self, in_features, hidden_size, out_features, num_layers=2, dropout=0.2, bidirectional=False):
@@ -27,6 +27,31 @@ class RNNEmbedding(nn.Module):
         x = self.emb(x)
         return x
 
+class TCNEmbedding(nn.Module):
+    def __init__(self, input_size, output_size, num_channels, kernel_size, dropout, num_layers=1, num_ensembles=1):
+        super(TCNEmbedding, self).__init()
+
+        self.layers = []
+        for i in range(num_ensembles):
+            sub_modules = []
+            for i in range(num_layers):
+                input_size = input_size if i == 0 else num_channels[-1]
+                module = TemporalConvNet(input_size, num_channels, kernel_size, dropout)
+                sub_modules.append(module)
+            sub_modules = nn.Sequential(*sub_modules)
+            self.layers.append(sub_modules)
+        self.layers = nn.ModuleList(self.layers)
+        self.linear = nn.Linear(num_channels[-1], output_size)
+        self.num_ensembles = num_ensembles
+    
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        outs = []
+        for layer in self.layers:
+            outs.append(layer(x))
+        outs = torch.stack(outs)
+        out = torch.sum(outs, dim=0).squeeze(0) / (self.num_ensembles ** 0.5)
+        out = self.linear(out[:, :, -1])
+        return out
 
 class UpliftWrapper(nn.Module):
     def __init__(
