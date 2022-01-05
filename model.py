@@ -219,6 +219,7 @@ class UpliftWrapperForRNN(nn.Module):
         super(UpliftWrapperForRNN, self).__init__()
         self.model = model
         self.linear = nn.Linear(out_features+1, out_features+1)
+        self.drop = nn.Dropout(p=0.2)
         self.classifier = nn.Linear(out_features+1, 1)
         
     def forward(
@@ -239,8 +240,8 @@ class UpliftWrapperForRNN(nn.Module):
         x_0 = torch.cat([x, torch.zeros([B, 1]).to(x.device)], dim=1)
         x_1 = torch.cat([x, torch.ones([B, 1]).to(x.device)], dim=1)
 
-        x_0 = F.relu(self.linear(x_0))
-        x_1 = F.relu(self.linear(x_1))
+        x_0 = F.relu(self.drop(self.linear(x_0)))
+        x_1 = F.relu(self.drop(self.linear(x_1)))
 
         y_0 = torch.sigmoid(self.classifier(x_0)).squeeze()
         y_1 = torch.sigmoid(self.classifier(x_1)).squeeze()

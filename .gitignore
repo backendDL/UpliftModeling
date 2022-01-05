@@ -1,7 +1,12 @@
 # Data
 data/
+dataset/
+dataset_*/
 game_log_url.txt
 game_push_url.txt
+
+# Wandb integration
+wandb/
 
 # Trained Model
 ckpts/
