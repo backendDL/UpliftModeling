@@ -1,4 +1,5 @@
 import argparse
+import random
 from math import inf
 import os
 from typing import List
@@ -18,6 +19,14 @@ from tqdm import tqdm
 from model import UpliftWrapperForRNN, DirectUpliftLoss, RNNEmbedding
 from dataset import BackendDataset
 
+def set_all_seeds(seed, verbose=False):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
 
 def get_model(args):
     rnn_module = RNNEmbedding(
@@ -175,6 +184,9 @@ def evaluate(args, model, eval_dl, loss_fn, device):
 
 def main(args):
 
+    if args.seed:
+        set_all_seeds(args.seed)
+
     model = get_model(args)
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     dataset = get_dataset(args)
@@ -233,6 +245,8 @@ def main(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Train the model')
+
+    parser.add_argument('--seed', type=int)
 
     parser.add_argument('--save_path', type=str, default="./saved", help="trained weight save path (deafult: ./saved)")
     parser.add_argument('--data_path', type=str, default="./dataset", help="dataset path (deafult: ./dataset)")
