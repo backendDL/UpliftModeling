@@ -31,13 +31,13 @@ def set_all_seeds(seed, verbose=False):
 def get_model(args):
     rnn_module = RNNEmbedding(
         in_features=6, 
-        hidden_size=16, 
-        out_features=16, 
-        num_layers=1, 
-        dropout=0.2, 
+        hidden_size=args.rnn_hidden_size, 
+        out_features=args.rnn_out_features, 
+        num_layers=args.rnn_num_layers, 
+        dropout=args.rnn_dropout, 
         bidirectional=False
     )
-    model = UpliftWrapperForRNN(rnn_module, 16)
+    model = UpliftWrapperForRNN(rnn_module, args.rnn_out_features)
     return model
 
 def get_dataset(args):
@@ -264,6 +264,11 @@ if __name__ == '__main__':
     parser.add_argument('--alpha', type=float, default=0.5)
     parser.add_argument('--per_device_train_batch_size', type=int, default=64)
     parser.add_argument('--per_device_eval_batch_size',  type=int, default=128)
+
+    parser.add_argument('--rnn_hidden_size',  type=int, default=16)
+    parser.add_argument('--rnn_out_features',  type=int, default=16)
+    parser.add_argument('--rnn_num_layers',  type=int, default=1)
+    parser.add_argument('--rnn_dropout',  type=float, default=0.2)
 
     parser.add_argument('--cutoff', type=float, default=0.5)
 
