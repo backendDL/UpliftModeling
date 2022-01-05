@@ -106,7 +106,7 @@ def train(args, model, train_dl, loss_fn, optimizer, device):
         probs.extend(out["pred"].detach().cpu().tolist())
         uplifts.extend(out["uplift"].detach().cpu().tolist())
 
-        y_pred = np.where(out["pred"].detach().numpy() > args.cutoff, 1, 0)
+        y_pred = np.where(out["pred"].detach().cpu().numpy() > args.cutoff, 1, 0)
         preds.extend(y_pred.tolist())
         answers.extend(y.detach().cpu().tolist())
         treatments.extend(t.detach().cpu().tolist())
@@ -156,7 +156,7 @@ def evaluate(args, model, eval_dl, loss_fn, device):
             probs.extend(out["pred"].detach().cpu().tolist())
             uplifts.extend(out["uplift"].detach().cpu().tolist())
 
-            y_pred = np.where(out["pred"].detach().numpy() > args.cutoff, 1, 0)
+            y_pred = np.where(out["pred"].detach().cpu().numpy() > args.cutoff, 1, 0)
             preds.extend(y_pred.tolist())
             answers.extend(y.detach().cpu().tolist())
             treatments.extend(t.detach().cpu().tolist())
