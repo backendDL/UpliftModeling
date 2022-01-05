@@ -2,7 +2,7 @@ from typing import List, Tuple, Optional, Union, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from TCN import TCN, TemporalConvNet
+from TCN import TemporalConvNet
 
 class RNNEmbedding(nn.Module):
     def __init__(self, in_features, hidden_size, out_features, num_layers=2, dropout=0.2, bidirectional=False):
@@ -44,8 +44,9 @@ class TCNEmbedding(nn.Module):
         self.linear = nn.Linear(num_channels[-1], output_size)
         self.num_ensembles = num_ensembles
     
-    def forward(self, x: torch.Tensor, t: torch.Tensor):
+    def forward(self, x: torch.Tensor):
         outs = []
+        x = x.transpose(1, 2).contiguous()
         for layer in self.layers:
             outs.append(layer(x))
         outs = torch.stack(outs)
