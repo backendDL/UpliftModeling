@@ -212,6 +212,8 @@ def main(args):
             current_metric = current_metric if args.higher_the_better else -current_metric
 
             if len(saved_metrics.keys()) < 5 or current_metric > max(saved_metrics.keys()):
+                if not os.path.isdir(args.save_path):
+                    os.makedirs(args.save_path)
                 saved_metrics[current_metric] = epoch
                 print(f"Saving the best model at epoch {epoch}")
                 torch.save(model.state_dict(), os.path.join(args.save_path, f"best_model_epoch{epoch}.pt"))
