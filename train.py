@@ -243,12 +243,17 @@ def main(args):
     loss_fn = DirectUpliftLoss(propensity_score=args.propensity_score, alpha=args.alpha)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
+    if args.load_checkpoint:
+        model.load_state_dict(torch.load(args.load_checkpoint))
+        print(f"Checkpoint {args.load_checkpoint} properly loaded")
+
     saved_metrics = {}
 
     model.to(device)
 
     for epoch in range(args.num_epochs):
-        print(f"Starting {epoch} epoch")
+        if not (args.do_train or args.do_eval):
+            break
 
         if args.do_train and train_dl is not None:
             model.train()
@@ -258,7 +263,6 @@ def main(args):
             metrics["probs"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["probs"])))
             metrics["uplifts"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["uplifts"])))
             wandb.log({"train/"+k: v for k, v in metrics.items()})
-        
 
         if args.do_eval and eval_dl is not None:
             model.eval()
@@ -267,6 +271,7 @@ def main(args):
             current_metric = metrics[args.best_metric]
             current_metric = current_metric if args.higher_the_better else -current_metric
 
+            # Create model checkpoint
             if len(saved_metrics.keys()) < 5 or current_metric > max(saved_metrics.keys()):
                 if not os.path.isdir(args.save_path):
                     os.makedirs(args.save_path)
@@ -287,24 +292,27 @@ def main(args):
 
     
     if args.do_predict:
-        if saved_metrics:
+        if saved_metrics and len(saved_metrics) > 0:
             # if do_eval == True so that evaluation metrics exist
             best_metric = max(saved_metrics.keys())
             best_epoch = saved_metrics[best_metric]
             model_file = os.path.join(args.save_path, f"best_model_epoch{best_epoch}.pt")
             model.load_state_dict(torch.load(model_file))
-        else:
-            # otherwise, assuming the model state dict with the 
+        elif args.do_train and args.do_eval:
+            # trained weight must have been saved
             model_files = glob.glob(os.path.join(args.save_path, f"best_model*"))
             model_file  = model_files[-1]
             model.load_state_dict(torch.load(model_file))
+        else:
+            # model state dict already loaded above
+            pass
 
         model.eval()
         metrics = evaluate(args, model, eval_dl, loss_fn, device)
 
         file_names = dataset.df.file_name[eval_set.indices]
         prediction = pd.DataFrame({"file_name": file_names, "prob": metrics["probs"], "uplift": metrics["uplifts"]})
-        prediction.to_csv("prediction.json")
+        prediction.to_csv("prediction.csv", index=False, encoding='utf-8')
 
         metrics["epoch"] = epoch
         metrics["probs"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["probs"])))
@@ -318,6 +326,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int)
 
     parser.add_argument('--save_path', type=str, default="./saved", help="trained weight save path (deafult: ./saved)")
+    parser.add_argument('--load_checkpoint', type=str, help="checkpoint file path. load checkpoint if provided.")
     parser.add_argument('--data_path', type=str, default="./dataset", help="dataset path (deafult: ./dataset)")
     parser.add_argument('--split_method', type=str, default="random", choices=["random", "game_id", "none"])
     parser.add_argument('--eval_game_id', type=str)
@@ -355,7 +364,7 @@ if __name__ == '__main__':
     parser.add_argument('--best_metric', type=str, default="loss")
     parser.add_argument('--higher_the_better', action='store_true')
     
-    parser.add_argument('--no_cuda', action='store_true')
+    parser.add_argument('--no_cuda',  action='store_true')
 
     args = parser.parse_args()
 
