@@ -7,6 +7,7 @@ game_push_url.txt
 available_pushes*
 dataset.zip
 *.csv
+nohup.out
 
 # Wandb integration
 wandb/
