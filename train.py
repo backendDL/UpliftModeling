@@ -1,5 +1,6 @@
 import argparse
 import random
+import datetime
 from math import inf
 import os
 import glob
@@ -273,21 +274,27 @@ def main(args):
 
             # Create model checkpoint
             if len(saved_metrics.keys()) < 5 or current_metric > max(saved_metrics.keys()):
-                if not os.path.isdir(args.save_path):
-                    os.makedirs(args.save_path)
-                saved_metrics[current_metric] = epoch
-                print(f"Saving the best model at epoch {epoch}")
-                torch.save(model.state_dict(), os.path.join(args.save_path, f"best_model_epoch{epoch}.pt"))
+
+                if not os.path.isdir(args.model_path):
+                    os.makedirs(args.model_path)
+
+                # First, remove worst performing model
                 if len(saved_metrics) > args.max_saved_models:
                     min_metric = min(saved_metrics.keys())
                     min_epoch = saved_metrics[min_metric]
-                    remove_file_name = os.path.join(args.save_path, f"best_model_epoch{min_epoch}.pt")
+                    remove_file_name = os.path.join(args.model_path, f"best_model_epoch{min_epoch}.pt")
                     try:
                         os.remove(remove_file_name)
                         print(f"Exceeds the max saved models. Remove the worst one at epoch {min_epoch}")
                     except:
                         print(f"Previous weights at epoch {min_epoch} already removed.")
                     del saved_metrics[min_metric]
+
+                # Then, save the current model
+                saved_metrics[current_metric] = epoch
+                print(f"Saving the best model at epoch {epoch}")
+                torch.save(model.state_dict(), os.path.join(args.model_path, f"best_model_epoch{epoch}.pt"))
+                
             
             metrics["epoch"] = epoch
             metrics["probs"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["probs"])))
@@ -370,8 +377,18 @@ if __name__ == '__main__':
     
     parser.add_argument('--no_cuda',  action='store_true')
 
-    args = parser.parse_args()
+    parser.add_argument('--wandb_run_name', type=str, default='exp')
+    parser.add_argument('--wandb_project', type=str, default='uplift-rnn')
+    parser.add_argument('--wandb_entity', type=str, default='uplift-modeling')
 
-    wandb.init(entity="uplift-modeling", project="uplift-rnn", name=f"epochs_{args.num_epochs}_lr_{args.learning_rate}", config=args)
+    args = parser.parse_args()
+    args.model_path = os.path.join(args.save_path, f"{args.wandb_run_name}_{datetime.datetime.now().strftime('%y%m%d')}")
+
+    wandb.init(
+        entity=args.wandb_entity, 
+        project=args.wandb_project, 
+        name=f"{args.wandb_run_name}_epochs_{args.num_epochs}_lr_{args.learning_rate}", 
+        config=args
+    )
 
     main(args)
