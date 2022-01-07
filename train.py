@@ -281,10 +281,14 @@ def main(args):
                 if len(saved_metrics) > args.max_saved_models:
                     min_metric = min(saved_metrics.keys())
                     min_epoch = saved_metrics[min_metric]
-                    print(f"Exceeds the max saved models. Remove the worst one at epoch {min_epoch}")
-                    os.remove(os.path.join(args.save_path, f"best_model_epoch{min_epoch}.pt"))
+                    remove_file_name = os.path.join(args.save_path, f"best_model_epoch{min_epoch}.pt")
+                    try:
+                        os.remove(remove_file_name)
+                        print(f"Exceeds the max saved models. Remove the worst one at epoch {min_epoch}")
+                    except:
+                        print(f"Previous weights at epoch {min_epoch} already removed.")
                     del saved_metrics[min_metric]
-
+            
             metrics["epoch"] = epoch
             metrics["probs"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["probs"])))
             metrics["uplifts"] = wandb.Histogram(np_histogram=np.histogram(np.array(metrics["uplifts"])))
