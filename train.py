@@ -275,12 +275,16 @@ def main(args):
             current_metric = current_metric if args.higher_the_better else -current_metric
 
             # Create model checkpoint
-            if len(saved_metrics.keys()) < 5 or current_metric > max(saved_metrics.keys()):
+            # save if total number of models is less than `max_saved_models`,
+            # or the performance metric exceeds the minimum among the saved models.
+            if len(saved_metrics.keys()) < args.max_saved_models or current_metric > min(saved_metrics.keys()):
 
                 if not os.path.isdir(args.model_path):
+                    # there might not be the path
+                    # due to frequent movements
                     os.makedirs(args.model_path)
 
-                # First, remove worst performing model
+                # First, remove the worst performing model
                 if len(saved_metrics) > args.max_saved_models:
                     min_metric = min(saved_metrics.keys())
                     min_epoch = saved_metrics[min_metric]
