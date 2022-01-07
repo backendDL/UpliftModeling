@@ -1,6 +1,7 @@
 # Data
 data/
 dataset/
+dataset*/
 dataset_*/
 game_log_url.txt
 game_push_url.txt
