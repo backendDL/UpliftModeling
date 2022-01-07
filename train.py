@@ -223,7 +223,9 @@ def main(args):
         set_all_seeds(args.seed)
 
     model = get_model(args)
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    device = torch.device("cuda" if (not args.no_cuda) and torch.cuda.is_available() else "cpu")
+    print(device)
+
     dataset = get_dataset(args)
     train_set, eval_set = split_dataset(args, dataset)
 
@@ -245,7 +247,7 @@ def main(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
     if args.load_checkpoint:
-        model.load_state_dict(torch.load(args.load_checkpoint))
+        model.load_state_dict(torch.load(args.load_checkpoint, map_location=device))
         print(f"Checkpoint {args.load_checkpoint} properly loaded")
 
     saved_metrics = {}
