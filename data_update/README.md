@@ -40,7 +40,7 @@ Use `analysis.py` if you want to download all files at once.
 
 You have to pass the URL with the `--url` flag (**required!!!**).
 
-### `data_update/load_push_logs.py`
+### `data_update/load_crud_logs.py`
 
 ```bash
 python data_update/load_crud_logs.py --help
